@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import scrapy
 
@@ -5,7 +6,7 @@ class ClassesSpider(scrapy.Spider):
     name = "classes"
 
     async def start(self):
-        yield scrapy.Request(url="https://classes.berkeley.edu/search/class?f[0]=term%3A8576&page=0", callback=self.parse)
+        yield scrapy.Request(url="https://classes.berkeley.edu/search/class?f[0]=term%3A8576&page=50", callback=self.parse)
 
     def parse(self, response):
         for c in response.xpath("//div[@class='views-row']"):
@@ -37,18 +38,37 @@ class ClassesSpider(scrapy.Spider):
                 
     def parse_class(self, response, item):
         # xpath selectors
+        instr_xpath = "normalize-space(//div[@class='sf--instructors']/p/text()[last()])"
+        days_xpath = "//div[@class='sf--meeting-days']/span[last()]/text()"
+        time_xpath = "//div[@class='sf--meeting-time']/span[last()]/text()"
         location_xpath = "normalize-space(//div[@class='sf--location']/a/text())"
         id_xpath = "normalize-space(//span[text()='Class #:']/parent::div/text()[last()])"
         units_xpath = "normalize-space(//span[text()='Units:']/parent::div/text()[last()])"
+        instruction_xpath = "//strong[text()='Instruction Mode:']/following::span/text()"
         course_des_xpath = "//section[@id='section-course-description']/div/text()"
         class_des_xpath = "//section[@id='section-class-description']/div/text()"
         capacity_xpath = "normalize-space(//strong[text()='Capacity:']/parent::div/text())"
         enrolled_xpath = "normalize-space(//strong[text()='Enrolled:']/parent::div/text())"
+        wl_xpath = "normalize-space(//strong[text()='Waitlisted:']/parent::div/text())"
+        wlmax_xpath = "normalize-space(//strong[text()='Waitlist Max:']/parent::div/text())"
         details_xpath = "//h3[text()='Current Enrollment']/parent::div/div[@class='details']"
+        requirements_xpath = "//div[@title='General Requirements']/text()"
         num_xpath = "./span/text()"
         classification_xpath = "normalize-space(./text()[last()])"
 
         # get info with xpath selectors
+        instructor = response.xpath(instr_xpath).get()
+        days = response.xpath(days_xpath).get()
+        time = response.xpath(time_xpath).get()
+        if time: time = time.split("-")
+        start_time = ""
+        end_time = ""
+        if time and len(time) == 1:
+            time[0] = time[0].strip()
+            start_time = datetime.strptime(time[0], "%I:%M %p").time().strftime("%H:%M")
+        if time and len(time) == 2:
+            time[1] = time[1].strip()
+            end_time = datetime.strptime(time[1], "%I:%M %p").time().strftime("%H:%M")
         location = response.xpath(location_xpath).get()
         id = response.xpath(id_xpath).get()
         units = response.xpath(units_xpath).get()
@@ -56,6 +76,9 @@ class ClassesSpider(scrapy.Spider):
         class_des = response.xpath(class_des_xpath).get()
         capacity = int(response.xpath(capacity_xpath).get())
         enrolled = int(response.xpath(enrolled_xpath).get())
+        waitlist = int(response.xpath(wl_xpath).get())
+        waitlist_max = int(response.xpath(wlmax_xpath).get())
+        reqs = response.xpath(requirements_xpath).getall()
         details = response.xpath(details_xpath)
         seats = {}
         for s in details:
@@ -64,6 +87,10 @@ class ClassesSpider(scrapy.Spider):
             seats[classification] = num
 
         # update dictionary with new info
+        item["instructor"] = instructor or ""
+        item["days"] = days or ""
+        item["start"] = start_time or ""
+        item["end"] = end_time or ""
         item["location"] = location or ""
         item["id"] = id
         item["units"] = units
@@ -71,5 +98,8 @@ class ClassesSpider(scrapy.Spider):
         item["class-description"] = class_des or ""
         item["capacity"] = capacity
         item["enrolled"] = enrolled
+        item["waitlist"] = waitlist
+        item["waitlist-max"] = waitlist_max
+        item["requirements"] = list(map(lambda x: " ".join(x.split()[1:]), reqs))
         item["seats"] = seats
         yield item
