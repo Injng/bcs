@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 
+use natord::compare;
 use rocket::serde::{Deserialize, Serialize, json};
 use rocket::{State, get, launch, post, routes};
 use serde_json::from_reader;
@@ -82,7 +83,8 @@ fn launch() -> _ {
     // deserialize course json
     let file = File::open("classes.json").expect("Failed to open class file");
     let reader = BufReader::new(file);
-    let courses: Vec<Class> = from_reader(reader).expect("Failed to parse JSON");
+    let mut courses: Vec<Class> = from_reader(reader).expect("Failed to parse JSON");
+    courses.sort_by(|a, b| compare(&a.code, &b.code));
 
     // schema for searching classes
     let o = TextOptions::default().set_indexing_options(

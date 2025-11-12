@@ -29,11 +29,11 @@ class ClassesSpider(scrapy.Spider):
                                  callback=self.parse_class,
                                  cb_kwargs={'item': item})
 
-        # next_page_xpath = "//li[@class='pager__item pager__item--next']/a/@href"
-        # next_page = response.xpath(next_page_xpath).get()
-        # if next_page is not None:
-        #     next_page = response.urljoin(next_page)
-        #    yield scrapy.Request(next_page, callback=self.parse)
+        next_page_xpath = "//li[@class='pager__item pager__item--next']/a/@href"
+        next_page = response.xpath(next_page_xpath).get()
+        if next_page is not None:
+            next_page = response.urljoin(next_page)
+            yield scrapy.Request(next_page, callback=self.parse)
                 
     def parse_class(self, response, item):
         # xpath selectors
