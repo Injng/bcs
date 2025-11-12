@@ -18,7 +18,7 @@ class ClassesSpider(scrapy.Spider):
             link = c.xpath(".//div[@class='st--section-name-wraper']/a/@href").get()
             item = {
                 "code": code,
-                "type": type,
+                "class-type": type,
                 "count": count,
                 "title": title,
                 "subtitle": subtitle or "",
@@ -54,8 +54,8 @@ class ClassesSpider(scrapy.Spider):
         units = response.xpath(units_xpath).get()
         course_des = response.xpath(course_des_xpath).get()
         class_des = response.xpath(class_des_xpath).get()
-        capacity = response.xpath(capacity_xpath).get()
-        enrolled = response.xpath(enrolled_xpath).get()
+        capacity = int(response.xpath(capacity_xpath).get())
+        enrolled = int(response.xpath(enrolled_xpath).get())
         details = response.xpath(details_xpath)
         seats = {}
         for s in details:
