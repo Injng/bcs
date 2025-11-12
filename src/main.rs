@@ -37,6 +37,7 @@ struct Class {
 #[derive(Deserialize)]
 struct Query {
     keywords: String,
+    offset: usize,
 }
 
 #[get("/all")]
@@ -51,8 +52,10 @@ fn get_results(
     searcher: &State<Searcher>,
     schema: &State<Schema>,
 ) -> Result<Vec<Class>, TantivyError> {
-    let q = query_parser.parse_query(&query.into_inner().keywords)?;
-    let results: Vec<(Score, DocAddress)> = searcher.search(&q, &TopDocs::with_limit(10))?;
+    let query_struct = query.into_inner();
+    let q = query_parser.parse_query(&query_struct.keywords)?;
+    let results: Vec<(Score, DocAddress)> =
+        searcher.search(&q, &TopDocs::with_limit(10).and_offset(query_struct.offset))?;
     let mut classes: Vec<Class> = vec![];
     let idx: Field = schema.get_field("idx").unwrap();
     for (_score, addr) in results {

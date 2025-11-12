@@ -9,10 +9,15 @@
   let query = "";
   let results: Course[] = [];
   let loading = false;
+	let loadingMore = false;
   let error: string | null = null;
+	let hasMore = false;
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let inflightAbort: AbortController | null = null;
+	let sentinelEl: HTMLElement | null = null;
+	let observer: IntersectionObserver | null = null;
+	let prevSentinelEl: HTMLElement | null = null;
 
   function handleInput(event: Event) {
     const value = (event.target as HTMLInputElement).value;
@@ -26,10 +31,15 @@
   }
 
   async function doSearch() {
-    if (!query.trim()) {
-      await fetchAll();
-      return;
-    }
+		// If query is empty, reset UI and skip request
+		if (query.trim().length === 0) {
+			if (inflightAbort) inflightAbort.abort();
+			results = [];
+			error = null;
+			loading = false;
+			hasMore = false;
+			return;
+		}
 
     if (inflightAbort) inflightAbort.abort();
     inflightAbort = new AbortController();
@@ -41,49 +51,90 @@
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ keywords: query }),
+				body: JSON.stringify({ keywords: query, offset: 0 }),
         signal: inflightAbort.signal,
       });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-      const data: Course[] = await res.json();
-      results = data.map(normalizeCourse);
+			const data: Course[] = await res.json();
+			results = data.map(normalizeCourse);
+			hasMore = data.length > 0;
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         error = "Something went wrong. Please try again.";
         results = [];
+				hasMore = false;
       }
     } finally {
       loading = false;
     }
   }
 
-  async function fetchAll() {
-    if (inflightAbort) inflightAbort.abort();
-    inflightAbort = new AbortController();
-    loading = true;
-    error = null;
-    try {
-      const res = await fetch("/api/all", { signal: inflightAbort.signal });
-      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-      const data: Course[] = await res.json();
-      results = data.map(normalizeCourse);
-    } catch (e) {
-      if ((e as Error).name !== "AbortError") {
-        error = "Something went wrong. Please try again.";
-        results = [];
-      }
-    } finally {
-      loading = false;
-    }
-  }
+	async function loadMore() {
+		// Guards
+		if (loading || loadingMore || !hasMore) return;
+		if (query.trim().length === 0) return;
 
-  onMount(() => {
-    fetchAll();
-  });
+		loadingMore = true;
+		try {
+			const currentOffset = results.length;
+			const currentQuery = query;
+			const res = await fetch("/api/search", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ keywords: currentQuery, offset: currentOffset }),
+			});
+			if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+			const data: Course[] = await res.json();
+			// If user changed the query mid-flight, drop these results
+			if (currentQuery !== query) return;
+			if (data.length === 0) {
+				hasMore = false;
+				return;
+			}
+			const mapped = data.map(normalizeCourse);
+			results = [...results, ...mapped];
+		} catch (_e) {
+		} finally {
+			loadingMore = false;
+		}
+	}
+
+	onMount(() => {
+		observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						loadMore();
+					}
+				}
+			},
+			{
+				root: null,
+				rootMargin: "0px",
+				threshold: 0.1,
+			}
+		);
+
+		// Observe if sentinel is already rendered
+		if (sentinelEl) observer.observe(sentinelEl);
+	});
+
+	// Re-bind observer if sentinel element changes
+	$: {
+		if (observer && sentinelEl !== prevSentinelEl) {
+			if (prevSentinelEl) observer.unobserve(prevSentinelEl);
+			if (sentinelEl) observer.observe(sentinelEl);
+			prevSentinelEl = sentinelEl;
+		}
+	}
 
   onDestroy(() => {
     if (debounceTimer) clearTimeout(debounceTimer);
     if (inflightAbort) inflightAbort.abort();
+		if (observer) {
+			observer.disconnect();
+			observer = null;
+		}
   });
 </script>
 
@@ -137,6 +188,20 @@
           <CourseCard {course} />
         {/each}
       </div>
+			<!-- Infinite scroll sentinel -->
+			{#if hasMore}
+				<div
+					class="flex items-center justify-center py-6 text-sm text-zinc-500"
+					bind:this={sentinelEl}
+				>
+					{#if loadingMore}
+						<LoaderIcon class="mr-2 size-4 animate-spin text-zinc-400" />
+					{/if}
+					<span class="select-none">{loadingMore ? "Loading more…" : "Scroll to load more"}</span>
+				</div>
+			{:else}
+				<div class="py-6 text-center text-sm text-zinc-500">No more results</div>
+			{/if}
     {/if}
   </div>
 </div>
