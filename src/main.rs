@@ -8,7 +8,7 @@ use serde_json::from_reader;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Field, STORED, Schema, TextFieldIndexing, TextOptions, Value};
-use tantivy::tokenizer::{NgramTokenizer, TextAnalyzer};
+use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer, TextAnalyzerBuilder};
 use tantivy::{DocAddress, Index, Score, Searcher, TantivyDocument, TantivyError, doc};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -102,10 +102,10 @@ fn launch() -> _ {
 
     // index the courses
     let index = Index::create_in_ram(schema.clone());
-    index.tokenizers().register(
-        "course_search",
-        TextAnalyzer::from(NgramTokenizer::new(3, 6, false).unwrap()),
-    );
+    let analyzer = TextAnalyzer::builder(NgramTokenizer::new(3, 6, false).unwrap())
+        .filter(LowerCaser)
+        .build();
+    index.tokenizers().register("course_search", analyzer);
     let mut writer = index.writer(50_000_000).unwrap();
     for i in 0..courses.len() {
         let c = courses[i].clone();
