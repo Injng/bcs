@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { Course } from '$lib/types';
 	import { normalizeCourse } from '$lib/types';
 	import SearchIcon from 'lucide-svelte/icons/search';
@@ -27,9 +27,7 @@
 
 	async function doSearch() {
 		if (!query.trim()) {
-			results = [];
-			error = null;
-			loading = false;
+			await fetchAll();
 			return;
 		}
 
@@ -58,6 +56,30 @@
 			loading = false;
 		}
 	}
+
+	async function fetchAll() {
+		if (inflightAbort) inflightAbort.abort();
+		inflightAbort = new AbortController();
+		loading = true;
+		error = null;
+		try {
+			const res = await fetch('/api/all', { signal: inflightAbort.signal });
+			if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+			const data: Course[] = await res.json();
+			results = data.map(normalizeCourse);
+		} catch (e) {
+			if ((e as Error).name !== 'AbortError') {
+				error = 'Something went wrong. Please try again.';
+				results = [];
+			}
+		} finally {
+			loading = false;
+		}
+	}
+
+	onMount(() => {
+		fetchAll();
+	});
 
 	onDestroy(() => {
 		if (debounceTimer) clearTimeout(debounceTimer);
