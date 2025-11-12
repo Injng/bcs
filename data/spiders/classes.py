@@ -6,12 +6,13 @@ class ClassesSpider(scrapy.Spider):
     name = "classes"
 
     async def start(self):
-        yield scrapy.Request(url="https://classes.berkeley.edu/search/class?f[0]=term%3A8576&page=50", callback=self.parse)
+        yield scrapy.Request(url="https://classes.berkeley.edu/search/class?f[0]=term%3A8576&page=0", callback=self.parse)
 
     def parse(self, response):
         for c in response.xpath("//div[@class='views-row']"):
             code = c.xpath(".//span[@class='st--section-name']/text()").get()
             type = c.xpath(".//span[@class='st--section-code']/text()").get()
+            if type == "IND": continue
             count = c.xpath(".//span[@class='st--section-count']/text()").get()
             title = c.xpath(".//div[@class='st--title']/h2/text()").get()
             subtitle = c.xpath(".//div[@class='st--subtitle']/text()").get()
@@ -72,6 +73,7 @@ class ClassesSpider(scrapy.Spider):
         location = response.xpath(location_xpath).get()
         id = response.xpath(id_xpath).get()
         units = response.xpath(units_xpath).get()
+        instruction = response.xpath(instruction_xpath).get()
         course_des = response.xpath(course_des_xpath).get()
         class_des = response.xpath(class_des_xpath).get()
         capacity = int(response.xpath(capacity_xpath).get())
@@ -94,6 +96,7 @@ class ClassesSpider(scrapy.Spider):
         item["location"] = location or ""
         item["id"] = id
         item["units"] = units
+        item["mode"] = instruction or ""
         item["course-description"] = course_des or ""
         item["class-description"] = class_des or ""
         item["capacity"] = capacity
