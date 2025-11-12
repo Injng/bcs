@@ -3,10 +3,11 @@
 
 	let { course }: { course: Course } = $props();
 
-	const pct =
-		course.capacity > 0
-			? Math.min(100, Math.round((course.enrolled / course.capacity) * 100))
-			: 0;
+	function getPct(c: Course): number {
+		const capacity = Number(c?.capacity) || 0;
+		const enrolled = Number(c?.enrolled) || 0;
+		return capacity > 0 ? Math.min(100, Math.round((enrolled / capacity) * 100)) : 0;
+	}
 </script>
 
 <a
@@ -43,7 +44,7 @@
 				<div class="mt-1 h-2 w-28 overflow-hidden bg-zinc-100">
 					<div
 						class="h-full bg-emerald-500 transition-[width]"
-						style={`width: ${pct}%`}
+						style:width={`${getPct(course)}%`}
 					></div>
 				</div>
 			{/if}
