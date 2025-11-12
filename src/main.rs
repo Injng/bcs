@@ -8,7 +8,7 @@ use serde_json::from_reader;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Field, STORED, Schema, TextFieldIndexing, TextOptions, Value};
-use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer, TextAnalyzerBuilder};
+use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer};
 use tantivy::{DocAddress, Index, Score, Searcher, TantivyDocument, TantivyError, doc};
 
 #[derive(Clone, Serialize, Deserialize)]
