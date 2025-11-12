@@ -127,7 +127,7 @@ fn launch() -> _ {
 
     // setup searching
     let searcher: Searcher = index.reader().unwrap().searcher();
-    let query_parser = QueryParser::for_index(
+    let mut query_parser = QueryParser::for_index(
         &index,
         vec![
             code,
@@ -138,6 +138,12 @@ fn launch() -> _ {
             class_description,
         ],
     );
+    query_parser.set_field_boost(code, 5.0);
+    query_parser.set_field_boost(title, 3.0);
+    query_parser.set_field_boost(subtitle, 1.5);
+    query_parser.set_field_boost(special, 1.5);
+    query_parser.set_field_boost(course_description, 0.5);
+    query_parser.set_field_boost(class_description, 0.5);
 
     // launch routes
     rocket::build()
