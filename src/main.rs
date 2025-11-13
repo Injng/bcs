@@ -262,7 +262,7 @@ fn search(
 #[launch]
 fn launch() -> _ {
     // deserialize course json
-    let file = File::open("classes.json").expect("Failed to open class file");
+    let file = File::open("json/classes.json").expect("Failed to open class file");
     let reader = BufReader::new(file);
     let mut courses: Vec<Class> = from_reader(reader).expect("Failed to parse JSON");
     courses.sort_by(|a, b| compare(&a.code, &b.code));
