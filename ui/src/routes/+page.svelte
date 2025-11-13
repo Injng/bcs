@@ -4,6 +4,8 @@
   import { normalizeCourse } from "$lib/types";
   import SearchIcon from "lucide-svelte/icons/search";
   import LoaderIcon from "lucide-svelte/icons/loader-2";
+  import FilterIcon from "lucide-svelte/icons/filter";
+  import ChevronDown from "lucide-svelte/icons/chevron-down";
   import CourseCard from "$lib/components/CourseCard.svelte";
 
   let query = "";
@@ -18,6 +20,78 @@
 	let sentinelEl: HTMLElement | null = null;
 	let observer: IntersectionObserver | null = null;
 	let prevSentinelEl: HTMLElement | null = null;
+
+  // Filters
+  let filtersOpen = false;
+  // Static general requirements aligned with backend enum serialization
+  let requirementsOptions: string[] = [
+    "the American Cultures requirement",
+    "the American Hist & Institutions requirement",
+    "the Entry Level Writing requirement",
+    "the Reading and Composition A requirement",
+    "the Reading and Composition B requirement",
+    "Arts & Literature, L&S Breadth",
+    "Biological Science, L&S Breadth",
+    "Historical Studies, L&S Breadth",
+    "International Studies, L&S Breadth",
+    "Philosophy & Values, L&S Breadth",
+    "Physical Science, L&S Breadth",
+    "Social & Behavioral Sciences, L&S Breadth",
+  ];
+  let selectedRequirements = new Set<string>();
+  let requirementsOr = true; // true = OR (any), false = AND (all)
+
+  function toggleFilters() {
+    filtersOpen = !filtersOpen;
+  }
+
+  function toggleRequirement(req: string) {
+    if (selectedRequirements.has(req)) {
+      selectedRequirements.delete(req);
+    } else {
+      selectedRequirements.add(req);
+    }
+    // Reset and re-search with new filters
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function setRequirementsOr(value: boolean) {
+    if (requirementsOr === value) return;
+    requirementsOr = value;
+    // Reset and re-search with new logic
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function clearRequirements() {
+    selectedRequirements = new Set();
+    // Reset and re-search with cleared filters
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  // No dynamic option building; static list above
+
+  function buildFiltersPayload() {
+    const payload: Record<string, unknown> = { requirements_or: requirementsOr };
+    if (selectedRequirements.size > 0) {
+      payload.requirements = Array.from(selectedRequirements);
+    }
+    return payload;
+  }
 
   function handleInput(event: Event) {
     const value = (event.target as HTMLInputElement).value;
@@ -51,7 +125,7 @@
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "content-type": "application/json" },
-				body: JSON.stringify({ keywords: query, offset: 0 }),
+				body: JSON.stringify({ keywords: query, offset: 0, filters: buildFiltersPayload() }),
         signal: inflightAbort.signal,
       });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
@@ -81,7 +155,7 @@
 			const res = await fetch("/api/search", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ keywords: currentQuery, offset: currentOffset }),
+				body: JSON.stringify({ keywords: currentQuery, offset: currentOffset, filters: buildFiltersPayload() }),
 			});
 			if (!res.ok) throw new Error(`Request failed: ${res.status}`);
 			const data: Course[] = await res.json();
@@ -149,6 +223,75 @@
       </p>
     </div>
 
+    <div class="mb-3 flex items-center justify-between">
+      <button
+        class="inline-flex items-center gap-2 border border-zinc-300 bg-white px-3 py-2 text-sm transition hover:border-zinc-400"
+        on:click={toggleFilters}
+        aria-expanded={filtersOpen}
+        aria-controls="filters"
+      >
+        <FilterIcon class="size-4 text-zinc-500" />
+        <span>Filters</span>
+        <ChevronDown class="size-4 text-zinc-500" />
+      </button>
+      {#if selectedRequirements.size > 0}
+        <button
+          class="text-xs text-zinc-600 underline underline-offset-4 hover:text-zinc-800"
+          on:click={clearRequirements}
+        >
+          Clear filters
+        </button>
+      {/if}
+    </div>
+
+    {#if filtersOpen}
+      <div id="filters" class="mb-6 border border-zinc-200 bg-zinc-50 p-3">
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <div class="text-sm font-medium text-zinc-800">Requirements</div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-zinc-600">Match</span>
+              <div class="inline-flex border border-zinc-300 text-xs">
+                <button
+                  class={"px-2 py-1 " + (requirementsOr ? "bg-zinc-200 text-zinc-800" : "bg-white text-zinc-700")}
+                  on:click={() => setRequirementsOr(true)}
+                  type="button"
+                  aria-pressed={requirementsOr}
+                >
+                  Any
+                </button>
+                <button
+                  class={"px-2 py-1 border-l border-zinc-300 " + (!requirementsOr ? "bg-zinc-200 text-zinc-800" : "bg-white text-zinc-700")}
+                  on:click={() => setRequirementsOr(false)}
+                  type="button"
+                  aria-pressed={!requirementsOr}
+                >
+                  All
+                </button>
+              </div>
+            </div>
+          </div>
+          {#if requirementsOptions.length === 0}
+            <div class="text-xs text-zinc-600">No requirement data.</div>
+          {:else}
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {#each requirementsOptions as req}
+                <label class="flex cursor-pointer items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    class="mt-0.5"
+                    checked={selectedRequirements.has(req)}
+                    on:change={() => toggleRequirement(req)}
+                  />
+                  <span class="text-zinc-700">{req}</span>
+                </label>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
     <div class="relative">
       <input
         type="search"
@@ -197,7 +340,7 @@
 					{#if loadingMore}
 						<LoaderIcon class="mr-2 size-4 animate-spin text-zinc-400" />
 					{/if}
-					<span class="select-none">{loadingMore ? "Loading more…" : "Scroll to load more"}</span>
+					<span class="select-none">{loadingMore ? "Loading more…" : ""}</span>
 				</div>
 			{:else}
 				<div class="py-6 text-center text-sm text-zinc-500">No more results</div>
