@@ -8,6 +8,24 @@
 		const enrolled = Number(c?.enrolled) || 0;
 		return capacity > 0 ? Math.min(100, Math.round((enrolled / capacity) * 100)) : 0;
 	}
+
+	function formatTime(raw?: string): string {
+		if (!raw) return '';
+		const t = String(raw).trim();
+		// HHMM e.g. "0930", "1400"
+		const hhmm = /^(\d{2})(\d{2})$/;
+		const m = t.match(hhmm);
+		if (m) {
+			let hours = parseInt(m[1], 10);
+			const minutes = m[2];
+			const suffix = hours >= 12 ? 'PM' : 'AM';
+			hours = hours % 12;
+			if (hours === 0) hours = 12;
+			return `${hours}:${minutes} ${suffix}`;
+		}
+		// Already formatted, return as-is
+		return t;
+	}
 </script>
 
 <a
@@ -34,6 +52,21 @@
                 {/if}
 			</h2>
 			<p class="mt-1 line-clamp-2 text-sm text-zinc-600">{course.course_description || course.class_description}</p>
+			{#if course.days || course.start || course.end}
+				<div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-700">
+					{#if course.days}
+						<span class="font-medium">{course.days}</span>
+					{/if}
+					{#if (course.days && (course.start || course.end))}
+						<span class="text-zinc-400">•</span>
+					{/if}
+					{#if course.start || course.end}
+						<span>
+							{formatTime(course.start)}{(course.start && course.end) ? '–' : ''}{formatTime(course.end)}
+						</span>
+					{/if}
+				</div>
+			{/if}
 		</div>
 		<div class="shrink-0 text-right">
 			<div class="text-xs text-zinc-500">Capacity</div>
