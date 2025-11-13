@@ -64,10 +64,10 @@ class ClassesSpider(scrapy.Spider):
         if time: time = time.split("-")
         start_time = ""
         end_time = ""
-        if time and len(time) == 1:
+        if time and len(time) >= 1:
             time[0] = time[0].strip()
             start_time = datetime.strptime(time[0], "%I:%M %p").time().strftime("%H:%M")
-        if time and len(time) == 2:
+        if time and len(time) >= 2:
             time[1] = time[1].strip()
             end_time = datetime.strptime(time[1], "%I:%M %p").time().strftime("%H:%M")
         location = response.xpath(location_xpath).get()
