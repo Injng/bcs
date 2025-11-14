@@ -56,7 +56,7 @@
   })();
   type TimeRange = { id: number; start: string; end: string };
   let nextTimeRangeId = 1;
-  let timeRanges: TimeRange[] = [{ id: nextTimeRangeId++, start: "08:00", end: "12:00" }];
+  let timeRanges: TimeRange[] = [];
 
   function toggleFilters() {
     filtersOpen = !filtersOpen;
