@@ -158,6 +158,7 @@ struct Filter {
     requirements: Option<Vec<Requirement>>,
     requirements_or: bool,
     times: Option<Vec<(String, String)>>,
+    days: Option<String>,
 }
 
 impl Filter {
@@ -214,8 +215,21 @@ impl Filter {
         return true;
     }
 
+    fn filter_days(&self, course: &Class) -> bool {
+        if let Some(d) = self.days.clone() {
+            let norm_days = (*course).days.replace(", ", "");
+            if norm_days == "" {
+                return true;
+            }
+            return norm_days == d;
+        }
+        return true;
+    }
+
     fn filter(&self, course: &Class) -> bool {
-        return self.filter_requirements(course) && self.filter_times(course);
+        return self.filter_requirements(course)
+            && self.filter_times(course)
+            && self.filter_days(course);
     }
 }
 
