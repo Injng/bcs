@@ -4,7 +4,7 @@ BCS aims to do one thing well: searching for classes. That means a course search
 - [ ] Achieve feature parity
   - [ ] Filtering based on level
   - [ ] Filtering based on mode of instruction
-  - [ ] Filtering based on days offered
+  - [x] Filtering based on days offered
   - [x] Filtering based on time
   - [ ] Filtering based on units
   - [x] Filtering based on requirements fulfilled
