@@ -58,6 +58,49 @@
   let nextTimeRangeId = 1;
   let timeRanges: TimeRange[] = [];
 
+  // Day-of-week filter (server expects concatenated codes like "MoWeFr")
+  type DayOption = { label: string; code: "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su" };
+  const dayOptions: DayOption[] = [
+    { label: "Monday", code: "Mo" },
+    { label: "Tuesday", code: "Tu" },
+    { label: "Wednesday", code: "We" },
+    { label: "Thursday", code: "Th" },
+    { label: "Friday", code: "Fr" },
+    { label: "Saturday", code: "Sa" },
+    { label: "Sunday", code: "Su" }
+  ];
+  const dayOrder: Array<DayOption["code"]> = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+  let selectedDays = new Set<DayOption["code"]>();
+
+  function toggleDay(code: DayOption["code"]) {
+    const next = new Set(selectedDays);
+    if (next.has(code)) next.delete(code);
+    else next.add(code);
+    selectedDays = next;
+    // Trigger search
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function clearDays() {
+    if (selectedDays.size === 0) return;
+    selectedDays = new Set();
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function buildDaysString(): string {
+    return dayOrder.filter((c) => selectedDays.has(c)).join("");
+  }
+
   function toggleFilters() {
     filtersOpen = !filtersOpen;
   }
@@ -139,6 +182,13 @@
     const payload: Record<string, unknown> = { requirements_or: requirementsOr };
     if (selectedRequirements.size > 0) {
       payload.requirements = Array.from(selectedRequirements);
+    }
+    const daysString = buildDaysString();
+    if (daysString.length > 0) {
+      payload.days = daysString;
+    }
+    if (daysString.length === 0) {
+      payload.days = null;
     }
     const validRanges: Array<[string, string]> = timeRanges
       .filter((r) => r.start < r.end) // "HH:MM" lexicographic works
@@ -344,6 +394,32 @@
               {/each}
             </div>
           {/if}
+        </div>
+        <div class="mt-4">
+          <div class="mb-2 flex items-center justify-between">
+            <div class="text-sm font-medium text-zinc-800">Days</div>
+            {#if selectedDays.size > 0}
+              <button
+                class="text-xs text-zinc-600 underline underline-offset-4 hover:text-zinc-800"
+                on:click={clearDays}
+                type="button"
+              >
+                Clear days
+              </button>
+            {/if}
+          </div>
+          <div class="grid grid-cols-7 gap-1">
+            {#each dayOptions as d}
+              <button
+                type="button"
+                class={"inline-flex items-center justify-center border border-zinc-300 px-2 py-2 text-sm transition " + (selectedDays.has(d.code) ? "bg-zinc-600 text-white" : "bg-white text-zinc-700 hover:border-zinc-400")}
+                aria-pressed={selectedDays.has(d.code)}
+                on:click={() => toggleDay(d.code)}
+              >
+                {d.label}
+              </button>
+            {/each}
+          </div>
         </div>
         <div class="mt-4">
           <div class="mb-2 flex items-center justify-between">
