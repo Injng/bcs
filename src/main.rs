@@ -12,7 +12,7 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, STORED, Schema, TextFieldIndexing, TextOptions, Value};
 use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer};
 use tantivy::{DocAddress, Index, Score, Searcher, TantivyDocument, TantivyError, doc};
-use time::Time;
+use time::{Time, macros::format_description};
 
 const LOAD: usize = 50;
 
@@ -25,11 +25,10 @@ mod time_opt {
         D: Deserializer<'de>,
     {
         let s: String = String::deserialize(deserializer)?;
-        if s.trim().is_empty() {
+        if s.trim().is_empty() || s.trim() == "00:00" {
             return Ok(None);
         }
 
-        // parse string like "13:00"
         let format = format_description!("[hour]:[minute]");
         Time::parse(&s, format)
             .map(Some)
@@ -158,7 +157,7 @@ impl Serialize for Requirement {
 struct Filter {
     requirements: Option<Vec<Requirement>>,
     requirements_or: bool,
-    times: Option<Vec<(Time, Time)>>,
+    times: Option<Vec<(String, String)>>,
 }
 
 impl Filter {
@@ -194,14 +193,17 @@ impl Filter {
 
     fn filter_times(&self, course: &Class) -> bool {
         if let Some(t) = self.times.clone() {
+            let format = format_description!("[hour]:[minute]");
             for pair in t {
                 if let Some(start) = (*course).start {
-                    if start < pair.0 {
+                    let start_limit = Time::parse(&pair.0, format).unwrap();
+                    if start < start_limit {
                         continue;
                     }
                 }
                 if let Some(end) = (*course).end {
-                    if end > pair.1 {
+                    let end_limit = Time::parse(&pair.1, format).unwrap();
+                    if end > end_limit {
                         continue;
                     }
                 }

@@ -6,6 +6,8 @@
   import LoaderIcon from "lucide-svelte/icons/loader-2";
   import FilterIcon from "lucide-svelte/icons/filter";
   import ChevronDown from "lucide-svelte/icons/chevron-down";
+  import PlusIcon from "lucide-svelte/icons/plus";
+  import TrashIcon from "lucide-svelte/icons/trash-2";
   import CourseCard from "$lib/components/CourseCard.svelte";
 
   let query = "";
@@ -40,6 +42,21 @@
   ];
   let selectedRequirements = new Set<string>();
   let requirementsOr = true; // true = OR (any), false = AND (all)
+  // Time range filters (server expects times: Vec<(Time, Time)>)
+  const timeStepOptions: string[] = (() => {
+    const out: string[] = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const hh = String(h).padStart(2, "0");
+        const mm = String(m).padStart(2, "0");
+        out.push(`${hh}:${mm}`);
+      }
+    }
+    return out;
+  })();
+  type TimeRange = { id: number; start: string; end: string };
+  let nextTimeRangeId = 1;
+  let timeRanges: TimeRange[] = [{ id: nextTimeRangeId++, start: "08:00", end: "12:00" }];
 
   function toggleFilters() {
     filtersOpen = !filtersOpen;
@@ -52,6 +69,39 @@
       selectedRequirements.add(req);
     }
     // Reset and re-search with new filters
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function addTimeRange() {
+    timeRanges = [...timeRanges, { id: nextTimeRangeId++, start: "08:00", end: "12:00" }];
+    // Trigger search
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function removeTimeRange(id: number) {
+    timeRanges = timeRanges.filter((r) => r.id !== id);
+    // Trigger search
+    if (inflightAbort) inflightAbort.abort();
+    results = [];
+    hasMore = false;
+    error = null;
+    debounceTimer && clearTimeout(debounceTimer);
+    doSearch();
+  }
+
+  function updateTimeRange(id: number, which: "start" | "end", value: string) {
+    timeRanges = timeRanges.map((r) => (r.id === id ? { ...r, [which]: value } as TimeRange : r));
+    // Trigger search
     if (inflightAbort) inflightAbort.abort();
     results = [];
     hasMore = false;
@@ -89,6 +139,12 @@
     const payload: Record<string, unknown> = { requirements_or: requirementsOr };
     if (selectedRequirements.size > 0) {
       payload.requirements = Array.from(selectedRequirements);
+    }
+    const validRanges: Array<[string, string]> = timeRanges
+      .filter((r) => r.start < r.end) // "HH:MM" lexicographic works
+      .map((r) => [r.start, r.end]);
+    if (validRanges.length > 0) {
+      payload.times = validRanges;
     }
     return payload;
   }
@@ -288,6 +344,53 @@
               {/each}
             </div>
           {/if}
+        </div>
+        <div class="mt-4">
+          <div class="mb-2 flex items-center justify-between">
+            <div class="text-sm font-medium text-zinc-800">Time ranges</div>
+            <button
+              class="inline-flex items-center gap-1 border border-zinc-300 bg-white px-2 py-1 text-xs transition hover:border-zinc-400"
+              type="button"
+              on:click={addTimeRange}
+            >
+              <PlusIcon class="size-3.5 text-zinc-600" />
+              Add range
+            </button>
+          </div>
+          <div class="space-y-2">
+            {#each timeRanges as r (r.id)}
+              <div class="flex items-center gap-2">
+                <select
+                  class="border border-zinc-300 bg-white px-2 py-1 text-sm"
+                  bind:value={r.start}
+                  on:change={(e) => updateTimeRange(r.id, "start", (e.target as HTMLSelectElement).value)}
+                >
+                  {#each timeStepOptions as opt}
+                    <option value={opt}>{opt}</option>
+                  {/each}
+                </select>
+                <span class="text-zinc-500">to</span>
+                <select
+                  class="border border-zinc-300 bg-white px-2 py-1 text-sm"
+                  bind:value={r.end}
+                  on:change={(e) => updateTimeRange(r.id, "end", (e.target as HTMLSelectElement).value)}
+                >
+                  {#each timeStepOptions as opt}
+                    <option value={opt}>{opt}</option>
+                  {/each}
+                </select>
+                <button
+                  class="ml-1 inline-flex items-center gap-1 border border-zinc-300 bg-white px-2 py-1 text-xs transition hover:border-zinc-400"
+                  type="button"
+                  on:click={() => removeTimeRange(r.id)}
+                  aria-label="Remove time range"
+                >
+                  <TrashIcon class="size-3.5 text-zinc-600" />
+                  Remove
+                </button>
+              </div>
+            {/each}
+          </div>
         </div>
       </div>
     {/if}
