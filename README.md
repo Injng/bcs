@@ -14,3 +14,4 @@ BCS aims to do one thing well: searching for classes. That means a course search
 - [ ] Filtering based on major requirements
 - [ ] Filtering based on non-conflict with other classes
 - [ ] Filtering based on reserved seating
+- [ ] Filtering based on distance from location

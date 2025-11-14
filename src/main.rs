@@ -12,8 +12,43 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, STORED, Schema, TextFieldIndexing, TextOptions, Value};
 use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer};
 use tantivy::{DocAddress, Index, Score, Searcher, TantivyDocument, TantivyError, doc};
+use time::Time;
 
 const LOAD: usize = 50;
+
+mod time_opt {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use time::{Time, macros::format_description};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Time>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = String::deserialize(deserializer)?;
+        if s.trim().is_empty() {
+            return Ok(None);
+        }
+
+        // parse string like "13:00"
+        let format = format_description!("[hour]:[minute]");
+        Time::parse(&s, format)
+            .map(Some)
+            .map_err(serde::de::Error::custom)
+    }
+
+    pub fn serialize<S>(value: &Option<Time>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(t) => serializer.serialize_str(
+                &t.format(&time::macros::format_description!("[hour]:[minute]"))
+                    .unwrap(),
+            ),
+            None => serializer.serialize_str(""),
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Class {
@@ -27,8 +62,16 @@ struct Class {
     link: String,
     instructor: String,
     days: String,
-    start: String,
-    end: String,
+    #[serde(
+        deserialize_with = "time_opt::deserialize",
+        serialize_with = "time_opt::serialize"
+    )]
+    start: Option<Time>,
+    #[serde(
+        deserialize_with = "time_opt::deserialize",
+        serialize_with = "time_opt::serialize"
+    )]
+    end: Option<Time>,
     location: String,
     id: String,
     units: String,
@@ -115,6 +158,7 @@ impl Serialize for Requirement {
 struct Filter {
     requirements: Option<Vec<Requirement>>,
     requirements_or: bool,
+    times: Option<Vec<(Time, Time)>>,
 }
 
 impl Filter {
@@ -148,11 +192,28 @@ impl Filter {
         return true;
     }
 
-    fn filter(&self, course: &Class) -> bool {
-        if !self.filter_requirements(course) {
+    fn filter_times(&self, course: &Class) -> bool {
+        if let Some(t) = self.times.clone() {
+            for pair in t {
+                if let Some(start) = (*course).start {
+                    if start < pair.0 {
+                        continue;
+                    }
+                }
+                if let Some(end) = (*course).end {
+                    if end > pair.1 {
+                        continue;
+                    }
+                }
+                return true;
+            }
             return false;
         }
         return true;
+    }
+
+    fn filter(&self, course: &Class) -> bool {
+        return self.filter_requirements(course) && self.filter_times(course);
     }
 }
 
