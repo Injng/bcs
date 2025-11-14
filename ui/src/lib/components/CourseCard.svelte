@@ -81,6 +81,18 @@
 					></div>
 				</div>
 			{/if}
+			{#if course.waitlist_max > 0 || course.waitlist > 0}
+				<div class="mt-3 text-xs text-zinc-500">Waitlist</div>
+				<div class="mt-0.5 text-sm font-medium">{course.waitlist}/{course.waitlist_max}</div>
+				{#if course.waitlist_max > 0}
+					<div class="mt-1 h-2 w-28 overflow-hidden bg-zinc-100">
+						<div
+							class="h-full bg-amber-500 transition-[width]"
+							style:width={`${Math.min(100, Math.round((course.waitlist / course.waitlist_max) * 100))}%`}
+						></div>
+					</div>
+				{/if}
+			{/if}
 		</div>
 	</div>
 </a>
