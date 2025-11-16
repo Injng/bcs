@@ -1,9 +1,8 @@
 import type { RequestHandler } from '@sveltejs/kit';
-
-const DEFAULT_API = 'http://bcs.lnjng.com';
+import { API_BASE } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ fetch }) => {
-  const base = DEFAULT_API;
+  const base = API_BASE;
   const res = await fetch(`${base}/classes/all`);
   return new Response(res.body, {
     status: res.status,

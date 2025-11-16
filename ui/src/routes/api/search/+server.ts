@@ -1,10 +1,9 @@
 import type { RequestHandler } from '@sveltejs/kit';
-
-const DEFAULT_API = 'http://bcs.lnjng.com';
+import { API_BASE } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request, fetch }) => {
   const body = await request.json().catch(() => ({ keywords: '' }));
-  const base = DEFAULT_API;
+  const base = API_BASE;
   const res = await fetch(`${base}/classes/search`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
