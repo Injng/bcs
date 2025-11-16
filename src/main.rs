@@ -252,7 +252,7 @@ fn get_results(
     searcher: &State<Searcher>,
     schema: &State<Schema>,
     classes: &mut Vec<Class>,
-) -> Result<(), TantivyError> {
+) -> Result<usize, TantivyError> {
     // setup query and search for it in index
     let q = query_parser.parse_query(&query_struct.keywords)?;
     let results: Vec<(Score, DocAddress)> = searcher.search(
@@ -260,7 +260,7 @@ fn get_results(
         &TopDocs::with_limit(LOAD).and_offset(query_struct.offset),
     )?;
     if results.len() == 0 {
-        return Ok(());
+        return Ok(query_struct.offset);
     }
 
     // map searched results to classes and ensure they meet filtered requirements
@@ -274,7 +274,7 @@ fn get_results(
         }
     }
 
-    // if not enough classes after filter, increment offset by 39 and try again
+    // if not enough classes after filter, increment offset by LOAD and try again
     if classes.len() < LOAD {
         query_struct.offset += LOAD;
         return get_results(
@@ -286,7 +286,7 @@ fn get_results(
             classes,
         );
     }
-    Ok(())
+    Ok(query_struct.offset)
 }
 
 #[post("/search", format = "json", data = "<query>")]
@@ -296,7 +296,7 @@ fn search(
     query_parser: &State<QueryParser>,
     searcher: &State<Searcher>,
     schema: &State<Schema>,
-) -> json::Json<Vec<Class>> {
+) -> json::Json<(Vec<Class>, usize)> {
     // get results from query
     let query_struct = query.into_inner();
     let mut classes: Vec<Class> = vec![];
@@ -331,8 +331,8 @@ fn search(
     prefix_matches.extend(other_matches);
 
     match results {
-        Ok(_) => json::Json(prefix_matches),
-        Err(_) => json::Json(vec![]),
+        Ok(offset) => json::Json((prefix_matches, offset)),
+        Err(_) => json::Json((vec![], 0)),
     }
 }
 

@@ -16,6 +16,7 @@
 	let loadingMore = false;
   let error: string | null = null;
 	let hasMore = false;
+  let nextOffset = 0;
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let inflightAbort: AbortController | null = null;
@@ -218,6 +219,7 @@
 			error = null;
 			loading = false;
 			hasMore = false;
+      nextOffset = 0;
 			return;
 		}
 
@@ -226,6 +228,8 @@
 
     loading = true;
     error = null;
+    // fresh search always starts at offset 0
+    nextOffset = 0;
 
     try {
       const res = await fetch("/api/search", {
@@ -235,9 +239,10 @@
         signal: inflightAbort.signal,
       });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-			const data: Course[] = await res.json();
-			results = data.map(normalizeCourse);
-			hasMore = data.length > 0;
+			const [raw, offset]: [Course[], number] = await res.json();
+			results = raw.map(normalizeCourse);
+      nextOffset = offset;
+			hasMore = raw.length > 0;
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         error = "Something went wrong. Please try again.";
@@ -256,7 +261,7 @@
 
 		loadingMore = true;
 		try {
-			const currentOffset = results.length;
+			const currentOffset = nextOffset;
 			const currentQuery = query;
 			const res = await fetch("/api/search", {
 				method: "POST",
@@ -264,15 +269,16 @@
 				body: JSON.stringify({ keywords: currentQuery, offset: currentOffset, filters: buildFiltersPayload() }),
 			});
 			if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-			const data: Course[] = await res.json();
+			const [raw, offset]: [Course[], number] = await res.json();
 			// If user changed the query mid-flight, drop these results
 			if (currentQuery !== query) return;
-			if (data.length === 0) {
+			if (raw.length === 0) {
 				hasMore = false;
 				return;
 			}
-			const mapped = data.map(normalizeCourse);
+			const mapped = raw.map(normalizeCourse);
 			results = [...results, ...mapped];
+      nextOffset = offset;
 		} catch (_e) {
 		} finally {
 			loadingMore = false;
