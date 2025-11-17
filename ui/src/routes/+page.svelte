@@ -62,13 +62,13 @@
   // Day-of-week filter (server expects concatenated codes like "MoWeFr")
   type DayOption = { label: string; code: "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su" };
   const dayOptions: DayOption[] = [
-    { label: "Monday", code: "Mo" },
-    { label: "Tuesday", code: "Tu" },
-    { label: "Wednesday", code: "We" },
-    { label: "Thursday", code: "Th" },
-    { label: "Friday", code: "Fr" },
-    { label: "Saturday", code: "Sa" },
-    { label: "Sunday", code: "Su" }
+    { label: "Mon", code: "Mo" },
+    { label: "Tue", code: "Tu" },
+    { label: "Wed", code: "We" },
+    { label: "Thu", code: "Th" },
+    { label: "Fri", code: "Fr" },
+    { label: "Sat", code: "Sa" },
+    { label: "Sun", code: "Su" }
   ];
   const dayOrder: Array<DayOption["code"]> = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
   let selectedDays = new Set<DayOption["code"]>();
