@@ -67,6 +67,11 @@
 					{/if}
 				</div>
 			{/if}
+			{#if course.instructor}
+				<div class="mt-1 text-sm text-zinc-600">
+					<span class="font-medium text-zinc-700">Instructor:</span> {course.instructor}
+				</div>
+			{/if}
 		</div>
 		<div class="shrink-0 text-right">
 			<div class="text-xs text-zinc-500">Capacity</div>
