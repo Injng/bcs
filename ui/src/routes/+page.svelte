@@ -211,9 +211,15 @@
     debounceTimer = setTimeout(doSearch, 250);
   }
 
+  function hasActiveFilters() {
+    return selectedRequirements.size > 0 ||
+           selectedDays.size > 0 ||
+           timeRanges.some(r => r.start < r.end);
+  }
+
   async function doSearch() {
-		// If query is empty, reset UI and skip request
-		if (query.trim().length === 0) {
+		// If query is empty and no filters, reset UI and skip request
+		if (query.trim().length === 0 && !hasActiveFilters()) {
 			if (inflightAbort) inflightAbort.abort();
 			results = [];
 			error = null;
@@ -257,7 +263,7 @@
 	async function loadMore() {
 		// Guards
 		if (loading || loadingMore || !hasMore) return;
-		if (query.trim().length === 0) return;
+		if (query.trim().length === 0 && !hasActiveFilters()) return;
 
 		loadingMore = true;
 		try {

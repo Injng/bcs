@@ -1,3 +1,5 @@
+mod seats;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -8,7 +10,7 @@ use rocket::{State, get, launch, post, routes};
 use serde::{Deserializer, Serializer};
 use serde_json::from_reader;
 use tantivy::collector::TopDocs;
-use tantivy::query::QueryParser;
+use tantivy::query::{AllQuery, QueryParser};
 use tantivy::schema::{Field, STORED, Schema, TextFieldIndexing, TextOptions, Value};
 use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer};
 use tantivy::{DocAddress, Index, Score, Searcher, TantivyDocument, TantivyError, doc};
@@ -86,6 +88,15 @@ struct Class {
     waitlist_max: u32,
     requirements: Vec<Requirement>,
     seats: HashMap<String, u32>,
+}
+
+#[derive(Clone, Deserialize)]
+struct Reservation {
+    college: String,
+    major: String,
+    minor: String,
+    terms: u32,
+    is_transfer: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -254,7 +265,11 @@ fn get_results(
     classes: &mut Vec<Class>,
 ) -> Result<usize, TantivyError> {
     // setup query and search for it in index
-    let q = query_parser.parse_query(&query_struct.keywords)?;
+    let q: Box<dyn tantivy::query::Query> = if query_struct.keywords.trim().is_empty() {
+        Box::new(AllQuery)
+    } else {
+        query_parser.parse_query(&query_struct.keywords)?
+    };
     let results: Vec<(Score, DocAddress)> = searcher.search(
         &q,
         &TopDocs::with_limit(LOAD).and_offset(query_struct.offset),
